@@ -1,7 +1,3 @@
-document.getElementById('testSpeedButton').addEventListener('click', function () {
-    testInternetSpeed();
-});
-
 function setCookie(name, value, minutes) {
     var expires = "";
     if (minutes) {
@@ -9,29 +5,29 @@ function setCookie(name, value, minutes) {
         date.setTime(date.getTime() + (minutes * 60 * 1000));
         expires = "; expires=" + date.toUTCString();
     }
-    document.cookie = name + "=" + (value || "") + expires + "; path=/";
+    var jsonValue = JSON.stringify(value);
+    document.cookie = name + "=" + encodeURIComponent(jsonValue) + expires + "; path=/";
 }
 
 function getCookie(name) {
     var nameEQ = name + "=";
     var ca = document.cookie.split(';');
     for (var i = 0; i < ca.length; i++) {
-        var c = ca[i];
-        while (c.charAt(0) === ' ') c = c.substring(1, c.length);
-        if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+        var c = ca[i].trim();
+        if (c.indexOf(nameEQ) === 0) {
+            var jsonValue = decodeURIComponent(c.substring(nameEQ.length, c.length));
+            return JSON.parse(jsonValue);
+        }
     }
     return null;
 }
-
 function testInternetSpeed() {
 
-    //get data from the cookie
-    var speedCookie = getCookie('internetSpeed');
-    var networkCookie = getCookie('networkSpeed');
+    var speedData = getCookie('networkInfo');
 
-    if (speedCookie && networkCookie) {
-        document.getElementById('result').innerText = `Internet Speed: ${speedCookie} Mbps, Network Speed: ${networkCookie}`;
-        console.log(`Network Speed: ${networkCookie}`);
+
+    if (speedData) {
+        console.log(`Internet Speed: ${speedData.speed} Mbps and ${speedData.network}`);
         return;
     }
 
@@ -49,7 +45,7 @@ function testInternetSpeed() {
 
     download.onerror = function () {
         clearTimeout(timeoutId); // Clear the timeout
-        document.getElementById('result').innerText = 'Error during test';
+        console.log('Error during test');
     };
 
     startTime = (new Date()).getTime();
@@ -57,40 +53,47 @@ function testInternetSpeed() {
     download.src = "https://upload.wikimedia.org/wikipedia/commons/a/a6/Brandenburger_Tor_abends.jpg" + cacheBuster;
 
     // Set a timeout for the download
-    timeoutId = setTimeout(function () {
-        download.onload = null; // Prevent onload from firing
-        classifyNetwork(0); // Classify as 2G since it timed out
-        document.getElementById('result').innerText = 'Network Speed: 2G (Timeout 20 sec)';
-    }, timeoutThreshold);
+    timeoutId =
+        setTimeout(function () {
+            download.onload = null; // Prevent onload from firing
+            classifyNetwork(0); // Classify as 2G since it timed out
+            console.log('Network Speed: 2G (Timeout 20 sec)');
+        }, timeoutThreshold);
 
     function calculateSpeed() {
         var duration = (endTime - startTime) / 1000; // Time in seconds
         var bitsLoaded = fileSize * 8; // Total bits downloaded
         var speedMbps = ((bitsLoaded / duration) / 1024 / 1024).toFixed(2);
 
-        setCookie('internetSpeed', speedMbps, 30); // Set cookie for 30 minutes
+        var networkInfo = { speed: speedMbps, network: '' };
 
+        console.log("networkInfo:", networkInfo)
+
+
+        setCookie('networkInfo', networkInfo, 30); // Set cookie for 30 minutes
         classifyNetwork(speedMbps);
-
-        // document.getElementById('result').innerText = `Internet Speed: ${speedMbps} Mbps`;
     }
 }
 
 function classifyNetwork(speedMbps) {
     var networkSpeed;
     if (speedMbps === 0 || speedMbps < 0.1) {
-        networkSpeed = 'Network Speed: 2G';
+        networkSpeed = '2G';
     } else if (speedMbps < 1) {
-        networkSpeed = 'Network Speed: 3G';
+        networkSpeed = '3G';
     } else if (speedMbps < 10) {
-        networkSpeed = 'Network Speed: 4G';
+        networkSpeed = '4G';
     } else {
-        networkSpeed = 'Network Speed: 5G';
+        networkSpeed = '5G';
     }
 
-    console.log(networkSpeed);
-    setCookie('networkSpeed', networkSpeed, 30); // Set cookie for 30 minutes
-    // document.getElementById('result').innerText += `, Network Speed: ${networkSpeed}`;
+    // console.log(networkSpeed);
+    var networkInfo = getCookie('networkInfo') || {};
+    networkInfo.network = networkSpeed;
+    setCookie('networkInfo', networkInfo, 30); // Set cookie for 30 minutes
 
-    document.getElementById('result').innerText = `Internet Speed: ${speedMbps} Mbps and ${networkSpeed}`;
+    console.log(`Internet Speed: ${networkInfo.speed} Mbps and ${networkInfo.network}`);
 }
+
+testInternetSpeed();
+
